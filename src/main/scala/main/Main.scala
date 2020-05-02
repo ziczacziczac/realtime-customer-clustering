@@ -139,7 +139,7 @@ object Main {
         println("Silhouette backward at " + i + " when clustered with " + means.length + " clusters is " + backward_sil_mean)
 
         val (forward_mean, forward_clustered,forward_sil_mean_map, forward_sil_mean)
-        = optimize_forward(minum_cluster, means.length + 1, sil_mean, previous_means, sil, clustered, customers, kmeansEta, kmeansMaxIterations)
+        = optimize_forward(maximum_cluster, means.length + 1, sil_mean, previous_means, sil, clustered, customers, kmeansEta, kmeansMaxIterations)
         println("Silhouette forward at " + i + " when clustered with " + means.length + " clusters is " + forward_sil_mean)
 
         if(backward_sil_mean < forward_sil_mean) {
