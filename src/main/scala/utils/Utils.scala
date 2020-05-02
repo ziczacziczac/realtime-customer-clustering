@@ -224,24 +224,23 @@ object Utils {
   }
 
   def addNewFurthestMean(array: Array[ListBuffer[Double]], clustered: RDD[(Int, Customer)]): Array[ListBuffer[Double]] = {
-//    val newMean = clustered.map(pair => {
-//      val customer = pair._2
-//
-//      var total_distance: Double = 0
-//      for(i <- array.indices) {
-//        val mean = array(i)
-//        val dis = dtw(customer.balances_norm, mean)
-//        total_distance += dis
-//      }
-//
-//      (customer.balances_norm, total_distance)
-//    }).max()(new Ordering[Tuple2[ListBuffer[Double], Double]]() {
-//      override def compare(x: (ListBuffer[Double], Double), y:  (ListBuffer[Double], Double)): Int =
-//        Ordering[Double].compare(x._2, y._2)
-//    })._1
+    val newMean = clustered.map(pair => {
+      val customer = pair._2
 
-//    array :+ newMean
-    array
+      var total_distance: Double = 0
+      for(i <- array.indices) {
+        val mean = array(i)
+        val dis = dtw(customer.balances_norm, mean)
+        total_distance += dis
+      }
+
+      (customer.balances_norm, total_distance)
+    }).max()(new Ordering[Tuple2[ListBuffer[Double], Double]]() {
+      override def compare(x: (ListBuffer[Double], Double), y:  (ListBuffer[Double], Double)): Int =
+        Ordering[Double].compare(x._2, y._2)
+    })._1
+
+    array :+ newMean
   }
 
   def dtw(x: ListBuffer[Double], y: ListBuffer[Double]): Double = {
