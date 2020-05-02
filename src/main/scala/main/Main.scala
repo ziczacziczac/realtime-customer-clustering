@@ -29,7 +29,7 @@ object Main {
   var BUGKET_DIR = "gs://clustering-result/"
 
   def main(args: Array[String]): Unit = {
-    val conf: SparkConf = new SparkConf().setMaster("local").setAppName("DTW")
+    val conf: SparkConf = new SparkConf().setAppName("DTW")
 
     val sc: SparkContext = new SparkContext(conf)
     val source = args(0)
@@ -246,10 +246,13 @@ object Main {
       var newMeans: Array[ListBuffer[Double]] = null
 
       if(NEW_MEAN_METHOD.equals("random")) {
+        println("Generate new mean using random method")
         newMeans = Utils.addNewRandomMean(previous_means)
       } else if (NEW_MEAN_METHOD.equals("furthest")) {
+        println("Generate new mean using random furthest")
         newMeans = Utils.addNewFurthestMean(previous_means, previous_clustered)
       } else {
+        println("Generate new mean using mean of previous centroid")
         newMeans = Utils.addNewMean(previous_means)
       }
 
