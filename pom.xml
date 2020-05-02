@@ -43,24 +43,6 @@
         <sourceDirectory>src/main/scala</sourceDirectory>
         <plugins>
             <plugin>
-                <groupId>org.scalatest</groupId>
-                <artifactId>scalatest-maven-plugin</artifactId>
-                <version>1.0</version>
-                <configuration>
-                    <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
-                    <argLine>${jvm.options.xms} ${jvm.options.xmx} ${jvm.options.maxpermsize} ${jvm.options.xx}</argLine>
-                    <stdout>W</stdout>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>scala-test</id>
-                        <goals>
-                            <goal>test</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
                 <version>3.3.2</version>
