@@ -7,7 +7,7 @@ gcloud pubsub subscriptions create topic-subscription --topic=topic
 
 export SERVICE_ACCOUNT_NAME="datdq5"
 export PROJECT=$(gcloud info --format='value(config.project)')
-export JAR="gs://realtime_clustering_source/test-1.0-SNAPSHOT.jar"
+export JAR="test-1.0-SNAPSHOT.jar"
 export SPARK_PROPERTIES="spark.dynamicAllocation.enabled=false,spark.streaming.receiver.writeAheadLog.enabled=true"
 
 gcloud iam service-accounts create $SERVICE_ACCOUNT_NAME

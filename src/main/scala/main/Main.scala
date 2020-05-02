@@ -49,7 +49,7 @@ object Main {
     val from = args(6).toInt
     val to = args(7).toInt
 
-    if(args.size > 8) {
+    if(args.length > 8) {
       NEW_MEAN_METHOD = args(8)
     }
 
