@@ -139,25 +139,28 @@ object Main {
         println("Silhouette at " + i + " when clustered with " + means.length + " clusters is " + sil_mean)
         val (backward_mean, backward_clustered, backward_sil_mean_map, backward_sil_mean)
         = optimize_backward(minum_cluster, means.length - 1, sil_mean, previous_means.clone(), sil, clustered, customers, kmeansEta, kmeansMaxIterations)
-        println("Silhouette backward at " + i + " when clustered with " + means.length + " clusters is " + backward_sil_mean)
+        println("Silhouette backward at " + i + " when clustered with " + backward_mean.length + " clusters is " + backward_sil_mean)
 
         val (forward_mean, forward_clustered,forward_sil_mean_map, forward_sil_mean)
         = optimize_forward(maximum_cluster, means.length + 1, sil_mean, previous_means.clone(), sil, clustered, customers, kmeansEta, kmeansMaxIterations)
-        println("Silhouette forward at " + i + " when clustered with " + means.length + " clusters is " + forward_sil_mean)
+        println("Silhouette forward at " + i + " when clustered with " + forward_mean.length + " clusters is " + forward_sil_mean)
 
         if(backward_sil_mean < forward_sil_mean) {
+          println("The optimize is forward with silhouette: " + sil_mean + " and number of clusters " + forward_mean.length)
           best_clustered = forward_clustered
           best_mean = forward_mean
           best_sil_mean_map = forward_sil_mean_map
           best_sil_mean = forward_sil_mean
           best_k = best_mean.length
         } else if(backward_sil_mean > forward_sil_mean){
+          println("The optimize is backward with silhouette: " + sil_mean + " and number of clusters " + backward_mean.length)
           best_clustered = backward_clustered
           best_mean = backward_mean
           best_sil_mean_map = backward_sil_mean_map
           best_sil_mean = backward_sil_mean
           best_k = best_mean.length
         } else {
+          println("The optimize is remain with silhouette: " + sil_mean + " and number of clusters " + means.length)
           best_clustered = clustered
           best_mean = means
           best_sil_mean_map = sil
@@ -182,7 +185,7 @@ object Main {
   }
 
   def monitor_cluster_change(previous_clustered: RDD[(Int, Customer)], current_clustered: RDD[(Int, Customer)]): collection.mutable.Map[(Int, Int), (collection.immutable.List[Int], Double)] = {
-    println("Start monitor cluster change")
+//    println("Start monitor cluster change")
     val previous = previous_clustered.mapValues(cus => List(cus.id))
       .reduceByKey(Utils.merge_list).collectAsMap()
     val current = current_clustered.mapValues(cus => List(cus.id))
@@ -195,7 +198,7 @@ object Main {
         val list_j = current(j)
 //        println("Number of member in current group " + j + ": " + list_j.size)
         val cross = Utils.inner_join(list_i, list_j)
-        println("Inner joint between previous group " + i + " and current group " + j + " is " + cross.length)
+//        println("Inner joint between previous group " + i + " and current group " + j + " is " + cross.length)
         if(cross.nonEmpty)
           map = map + ((i, j) -> (cross, cross.length * 1.0/list_i.length))
       }
@@ -213,7 +216,7 @@ object Main {
                         kmeansEta: Double,
                         kmeansMaxIterations: Int):
   (Array[ListBuffer[Double]], RDD[(Int, Customer)], collection.Map[Int, Double], Double) = {
-    print("Start looking backward with number of cluster " + current_cluster)
+    println("Start looking backward with number of cluster " + current_cluster)
     if(minimum_cluster > current_cluster) {
       ( previous_means, previous_clustered, previous_sil_map, previous_sil_mean)
     } else {
@@ -262,7 +265,7 @@ object Main {
         println("Generate new mean using mean of previous centroid")
         newMeans = Utils.addNewMean(previous_means)
       }
-      Utils.print_means(-1, newMeans)
+//      Utils.print_means(-1, newMeans)
 
       val (means, clustered) = kmeans(newMeans, customers, DISTANCE_METHOD, 0, false, kmeansEta, kmeansMaxIterations)
       val sil = silhouette(clustered, means)
