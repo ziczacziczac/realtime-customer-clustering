@@ -230,7 +230,7 @@ object Utils {
       val mean = array(cluster_id)
 
       if(dtw(customer.balances_norm, mean) <= threshold) {
-        (customer.balances_norm, -1)
+        (customer.balances_norm, -1.0)
       } else {
         var total_distance: Double = 0
         for(i <- array.indices) {
