@@ -76,6 +76,13 @@ object DataConverter {
       .set("number_cus", number_cus).build()
   }
 
+  private def convert_to_cluster_distance(keyFactory: KeyFactory, time_point: Int, cluster_id: Int, mean_distance: Double): FullEntity[IncompleteKey] = {
+    FullEntity.newBuilder(keyFactory.newKey())
+      .set("time_point", time_point)
+      .set("cluster_id", cluster_id)
+      .set("mean_distance", mean_distance).build()
+  }
+
   def save_clustered_customers(time_point: Int,
                                cluster_id: Int,
                                customer: Customer): Unit = {
@@ -146,5 +153,12 @@ object DataConverter {
       val entity: FullEntity[IncompleteKey] = convert_to_cluster_monitor(keyFactoryBuilder, time_point, key._1, key._2, monitor_cluster(key)._1.length, monitor_cluster(key)._2)
       datastore.add(entity)
     }
+  }
+
+  def save_cluster_mean_distance(kind_prefix: String, time_point: Int, cluster_id: Int, mean_distance: Double): Unit = {
+    val datastore: Datastore = DatastoreOptions.getDefaultInstance.getService
+    val keyFactoryBuilder = datastore.newKeyFactory().setKind(kind_prefix + "_cluster_distance")
+    val entity: FullEntity[IncompleteKey] = convert_to_cluster_distance(keyFactoryBuilder, time_point, cluster_id, mean_distance)
+    datastore.add(entity)
   }
 }

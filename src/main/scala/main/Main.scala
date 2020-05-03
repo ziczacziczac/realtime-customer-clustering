@@ -252,13 +252,17 @@ object Main {
         println("Generate new mean using random method")
         newMeans = Utils.addNewRandomMean(previous_means)
       } else if (NEW_MEAN_METHOD.equals("furthest")) {
-        println("Generate new mean using random furthest")
+        println("Generate new mean using furthest")
         newMeans = Utils.addNewFurthestMean(previous_means, previous_clustered, NEW_MEAN_THRESHOLD)
-        Utils.print_means(-1, newMeans)
+      } else if (NEW_MEAN_METHOD.equals("furthest_in_cluster")) {
+        val cluster_have_min_sil = previous_sil_map.min._1
+        println("Generate new mean using furthest_in_cluster " + cluster_have_min_sil)
+        newMeans = Utils.addNewFurthestMeanInCluster(previous_means, previous_clustered, cluster_have_min_sil)
       } else {
         println("Generate new mean using mean of previous centroid")
         newMeans = Utils.addNewMean(previous_means)
       }
+      Utils.print_means(-1, newMeans)
 
       val (means, clustered) = kmeans(newMeans, customers, DISTANCE_METHOD, 0, false, kmeansEta, kmeansMaxIterations)
       val sil = silhouette(clustered, means)

@@ -177,6 +177,12 @@ object Utils {
      */
     if(monitor_cluster != null)
       DataConverter.save_cluster_monitor(kind_prefix, time_point, monitor_cluster)
+
+    /**
+     * Save the cluster mean distance
+     */
+    calculate_mean_distance_in_clusters(means, clustered)
+      .foreach(pair => DataConverter.save_cluster_mean_distance(kind_prefix, time_point, pair._1, pair._2))
   }
 
   def load_customer_data(sc: SparkContext, source: String): RDD[Customer] = {
@@ -246,6 +252,30 @@ object Utils {
     })._1
 
     array :+ newMean
+  }
+
+  def addNewFurthestMeanInCluster(array: Array[ListBuffer[Double]], clustered: RDD[(Int, Customer)], min_cluster_silhouette: Int): Array[ListBuffer[Double]] = {
+    val mean = array(min_cluster_silhouette)
+    val newMean = clustered.filter(pair => pair._1 == min_cluster_silhouette).map(pair => {
+      val customer = pair._2
+      val dis = dtw(customer.balances_norm, mean)
+      (customer.balances_norm, dis)
+    }).max()(new Ordering[Tuple2[ListBuffer[Double], Double]]() {
+      override def compare(x: (ListBuffer[Double], Double), y:  (ListBuffer[Double], Double)): Int =
+        Ordering[Double].compare(x._2, y._2)
+    })._1
+
+    array :+ newMean
+  }
+
+  def calculate_mean_distance_in_clusters(means: Array[ListBuffer[Double]], clustered: RDD[(Int, Customer)]): RDD[(Int, Double)] = {
+    clustered.map(pair => {
+      val cluster_id = pair._1
+      val customer = pair._2
+
+      (cluster_id, (1, dtw(customer.balances_norm, means(cluster_id))))
+    }).reduceByKey((v1, v2) => (v1._1 + v2._1, v1._2 + v2._2))
+      .mapValues(pair => pair._2 / pair._1)
   }
 
   def dtw(x: ListBuffer[Double], y: ListBuffer[Double]): Double = {
