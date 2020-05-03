@@ -135,11 +135,11 @@ object Main {
         val sil_mean = sil.values.sum / means.length
         println("Silhouette at " + i + " when clustered with " + means.length + " clusters is " + sil_mean)
         val (backward_mean, backward_clustered, backward_sil_mean_map, backward_sil_mean)
-        = optimize_backward(minum_cluster, means.length - 1, sil_mean, previous_means, sil, clustered, customers, kmeansEta, kmeansMaxIterations)
+        = optimize_backward(minum_cluster, means.length - 1, sil_mean, previous_means.clone(), sil, clustered, customers, kmeansEta, kmeansMaxIterations)
         println("Silhouette backward at " + i + " when clustered with " + means.length + " clusters is " + backward_sil_mean)
 
         val (forward_mean, forward_clustered,forward_sil_mean_map, forward_sil_mean)
-        = optimize_forward(maximum_cluster, means.length + 1, sil_mean, previous_means, sil, clustered, customers, kmeansEta, kmeansMaxIterations)
+        = optimize_forward(maximum_cluster, means.length + 1, sil_mean, previous_means.clone(), sil, clustered, customers, kmeansEta, kmeansMaxIterations)
         println("Silhouette forward at " + i + " when clustered with " + means.length + " clusters is " + forward_sil_mean)
 
         if(backward_sil_mean < forward_sil_mean) {
@@ -251,6 +251,7 @@ object Main {
       } else if (NEW_MEAN_METHOD.equals("furthest")) {
         println("Generate new mean using random furthest")
         newMeans = Utils.addNewFurthestMean(previous_means, previous_clustered)
+        Utils.print_means(-1, newMeans)
       } else {
         println("Generate new mean using mean of previous centroid")
         newMeans = Utils.addNewMean(previous_means)
@@ -259,6 +260,7 @@ object Main {
       val (means, clustered) = kmeans(newMeans, customers, DISTANCE_METHOD, 0, false, kmeansEta, kmeansMaxIterations)
       val sil = silhouette(clustered, means)
       val sil_mean = sil.values.sum / current_cluster
+      println("Optimize forward with " + current_cluster + " is: " + sil_mean + " compare with previous: " + previous_sil_mean)
       if(sil_mean <= previous_sil_mean) {
         (previous_means, previous_clustered, previous_sil_map, previous_sil_mean)
       } else {
