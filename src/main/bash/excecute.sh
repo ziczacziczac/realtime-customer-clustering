@@ -9,6 +9,8 @@ export SERVICE_ACCOUNT_NAME="datdq5"
 export PROJECT=$(gcloud info --format='value(config.project)')
 export JAR="test-1.0-SNAPSHOT.jar"
 export SPARK_PROPERTIES="spark.dynamicAllocation.enabled=false,spark.streaming.receiver.writeAheadLog.enabled=true"
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
 
 gcloud iam service-accounts create $SERVICE_ACCOUNT_NAME
 
@@ -20,4 +22,4 @@ gcloud beta pubsub subscriptions add-iam-policy-binding topic-subscription --rol
 
 gcloud dataproc clusters create demo-cluster --region us-central1 --service-account "$SERVICE_ACCOUNT_NAME@$PROJECT.iam.gserviceaccount.com" --subnet default --zone us-central1-f --scopes=datastore --master-machine-type n1-standard-2 --master-boot-disk-size 500 --num-workers 2 --worker-machine-type n1-standard-2 --worker-boot-disk-size 500 --image-version 1.3-deb9 --project real-time-clustering
 
-gcloud dataproc jobs submit spark --region us-central1 --cluster demo-cluster --async --jar target/$JAR --properties $SPARK_PROPERTIES -- gs://datazzz/5k 0.00001 200 true 2 5 0 44 furthest
+gcloud dataproc jobs submit spark --region us-central1 --cluster demo-cluster --async --jar target/$JAR --properties $SPARK_PROPERTIES -- gs://datazzz/5k 0.00001 200 true 5 10 0 5 furthest

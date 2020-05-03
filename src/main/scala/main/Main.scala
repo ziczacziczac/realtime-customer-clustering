@@ -22,6 +22,8 @@ object Main {
 
   var NEW_MEAN_METHOD: String = "random"
 
+  var NEW_MEAN_THRESHOLD: Double = 0
+
   var ADDED_MONTH: ListBuffer[Int] = ListBuffer[Int]()
 
   def CHECKPOINT_DIRECTORY: String = "hdfs:///user/spark/checkpoint"
@@ -51,6 +53,7 @@ object Main {
 
     if(args.length > 8) {
       NEW_MEAN_METHOD = args(8)
+      NEW_MEAN_THRESHOLD = args(9).toDouble
     }
 
     if(using_old_centers) {
@@ -250,7 +253,7 @@ object Main {
         newMeans = Utils.addNewRandomMean(previous_means)
       } else if (NEW_MEAN_METHOD.equals("furthest")) {
         println("Generate new mean using random furthest")
-        newMeans = Utils.addNewFurthestMean(previous_means, previous_clustered)
+        newMeans = Utils.addNewFurthestMean(previous_means, previous_clustered, NEW_MEAN_THRESHOLD)
         Utils.print_means(-1, newMeans)
       } else {
         println("Generate new mean using mean of previous centroid")
