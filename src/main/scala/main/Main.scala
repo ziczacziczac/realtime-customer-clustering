@@ -20,6 +20,8 @@ object Main {
 
   var TIME_RUNNING_IN_HOUR: Int = 10
 
+  var SILHOUETTE_CHANGE_THRESHOLD: Double = 0.05
+
   var NEW_MEAN_METHOD: String = "random"
 
   var NEW_MEAN_THRESHOLD: Double = 0
@@ -51,10 +53,12 @@ object Main {
     val from = args(6).toInt
     val to = args(7).toInt
 
-    if(args.length > 8) {
+    if(using_old_centers) {
       NEW_MEAN_METHOD = args(8)
       NEW_MEAN_THRESHOLD = args(9).toDouble
+      SILHOUETTE_CHANGE_THRESHOLD = args(10).toDouble
     }
+
 
     if(using_old_centers) {
       clustering_with_history_cluster_center(source, sc, kmeansEta, kmeansMaxIterations, minimum_cluster,
@@ -225,7 +229,7 @@ object Main {
       val (means, clustered) = kmeans(newMeans, customers, DISTANCE_METHOD, 0, false, kmeansEta, kmeansMaxIterations)
       val sil = silhouette(clustered, means)
       val sil_mean = sil.values.sum / current_cluster
-      if(sil_mean <= previous_sil_mean) {
+      if(sil_mean <= previous_sil_mean + SILHOUETTE_CHANGE_THRESHOLD) {
         (previous_means, previous_clustered, previous_sil_map, previous_sil_mean)
       } else {
         optimize_backward(minimum_cluster, current_cluster - 1, sil_mean, means, sil,
@@ -271,7 +275,7 @@ object Main {
       val sil = silhouette(clustered, means)
       val sil_mean = sil.values.sum / current_cluster
       println("Optimize forward with " + current_cluster + " is: " + sil_mean + " compare with previous: " + previous_sil_mean)
-      if(sil_mean <= previous_sil_mean) {
+      if(sil_mean <= previous_sil_mean + SILHOUETTE_CHANGE_THRESHOLD) {
         (previous_means, previous_clustered, previous_sil_map, previous_sil_mean)
       } else {
         optimize_forward(maximum_cluster, current_cluster + 1, sil_mean, means, sil,

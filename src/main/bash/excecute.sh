@@ -22,4 +22,4 @@ gcloud beta pubsub subscriptions add-iam-policy-binding topic-subscription --rol
 
 gcloud dataproc clusters create demo-cluster --region us-central1 --service-account "$SERVICE_ACCOUNT_NAME@$PROJECT.iam.gserviceaccount.com" --subnet default --zone us-central1-f --scopes=datastore --master-machine-type n1-standard-2 --master-boot-disk-size 500 --num-workers 2 --worker-machine-type n1-standard-2 --worker-boot-disk-size 500 --image-version 1.3-deb9 --project real-time-clustering
 
-gcloud dataproc jobs submit spark --region us-central1 --cluster demo-cluster --async --jar target/$JAR --properties $SPARK_PROPERTIES -- gs://datazzz/5k 0.00001 200 true 5 10 0 5 furthest
+gcloud dataproc jobs submit spark --region us-central1 --cluster demo-cluster --async --jar target/$JAR --properties $SPARK_PROPERTIES -- gs://datazzz/5k 0.00001 200 true 5 10 0 5 furthest_in_cluster 3 0.05
