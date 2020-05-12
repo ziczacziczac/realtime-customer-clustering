@@ -47,7 +47,7 @@ object Utils {
     customer.id + "," + customer.balances_norm.mkString(",")
   }
 
-  def stringToCustomer(cusInString: String): Customer = {
+  def stringToCustomer(cusInString: String, balance_length: Int): Customer = {
     if (cusInString != null && !cusInString.isEmpty) {
       val cusElems = cusInString.split(",")
       val cusId = cusElems(0).toInt
@@ -56,7 +56,7 @@ object Utils {
       for (i <- 1 until cusElems.size) {
         balances += cusElems(i).toDouble
       }
-      val balance_raw = balances.slice(0, 12)
+      val balance_raw = balances.slice(0, balance_length)
       Customer(cusId, normalize(balance_raw), balance_raw, balances)
     } else {
       null
@@ -137,60 +137,109 @@ object Utils {
                   clustered: RDD[(Int, Customer)], means: Array[ListBuffer[Double]],
                   silhouettes: collection.Map[Int, Double],
                   monitor_cluster: collection.mutable.Map[(Int, Int), (List[Int], Double)],
-                  kind_prefix: String): Unit = {
+                  n_samples: Int,
+                  kind_prefix: String,
+                  new_mean_method: String,
+                  balance_length: Int): Unit = {
 
     /**
      * Save the statistic of each clusters
      */
     clustered.mapValues(cus => (1, cus.balances_raw))
-        .reduceByKey((k1, k2) => (k1._1 + k2._1, Utils.sum_balance(k1._2, k2._2)))
-        .foreach(pair => {
-          val cluster_id = pair._1
-          val values = pair._2
-          val count = values._1
-          val total_balances = values._2
-          val means = Utils.divide(total_balances, count)
-          val m = Utils.mean(means)
-          val sd = Utils.sd(means)
-          DataConverter.save_clustered_statistic(kind_prefix, time_point, cluster_id, m, sd)
-        })
+      .reduceByKey((k1, k2) => (k1._1 + k2._1, Utils.sum_balance(k1._2, k2._2)))
+      .foreach(pair => {
+        val cluster_id = pair._1
+        val values = pair._2
+        val count = values._1
+        val total_balances = values._2
+        val means = Utils.divide(total_balances, count)
+        val m = Utils.mean(means)
+        val sd = Utils.sd(means)
+        DataConverter.save_clustered_statistic(kind_prefix, time_point, cluster_id, m, sd, new_mean_method, balance_length)
+      })
 
     /**
      * Save the cluster total balances
      */
     clustered.mapValues(_.balances_future)
       .reduceByKey(Utils.sum_balance)
-      .foreach(balances_total => DataConverter.save_clustered_total_balance(kind_prefix, time_point, balances_total._1, balances_total._2))
+      .foreach(balances_total => DataConverter.save_clustered_total_balance(kind_prefix, time_point,
+        balances_total._1, balances_total._2, new_mean_method, balance_length))
 
     /**
      * Save the clustering result
      */
     for (i <- means.indices) {
       if (silhouettes.contains(i))
-        DataConverter.save_clustered_result(kind_prefix, time_point, spent_time, silhouettes(i), i, means(i))
+        DataConverter.save_clustered_result(kind_prefix, time_point, spent_time, silhouettes(i), i, means(i),
+          new_mean_method, balance_length)
       else
-        DataConverter.save_clustered_result(kind_prefix, time_point, spent_time, -1, i, means(i))
+        DataConverter.save_clustered_result(kind_prefix, time_point, spent_time, -1, i, means(i),
+          new_mean_method, balance_length)
     }
 
     /**
      * Save the cluster monitor
      */
-    if(monitor_cluster != null)
-      DataConverter.save_cluster_monitor(kind_prefix, time_point, monitor_cluster)
+    if (monitor_cluster != null)
+      DataConverter.save_cluster_monitor(kind_prefix, time_point, monitor_cluster, new_mean_method, balance_length)
 
     /**
      * Save the cluster mean distance
      */
     calculate_mean_distance_in_clusters(means, clustered)
-      .foreach(pair => DataConverter.save_cluster_mean_distance(kind_prefix, time_point, pair._1, pair._2))
+      .foreach(pair => DataConverter.save_cluster_mean_distance(kind_prefix, time_point, pair._1, pair._2,
+        new_mean_method, balance_length))
+
+    /**
+     * Save the cluster mean sample
+     */
+    take_cluster_sample(n_samples, means, clustered)
+      .foreach(pair => {
+        DataConverter.save_cluster_sample(kind_prefix, time_point, pair._1, pair._2, new_mean_method, balance_length)
+      })
+
+    /**
+     * Save the number of members of each cluster
+     */
+    count_cluster_members(clustered)
+      .foreach(pair => DataConverter.save_cluster_members_count(kind_prefix, time_point, pair._1,
+        pair._2, new_mean_method, balance_length))
+
   }
 
-  def load_customer_data(sc: SparkContext, source: String): RDD[Customer] = {
+  def count_cluster_members(clustered: RDD[(Int, Customer)]): collection.Map[Int, Int] = {
+    clustered.mapValues(customer => 1)
+      .reduceByKey((c1, c2) => c1 + c2)
+      .collectAsMap()
+  }
+
+  def take_cluster_sample(n_samples: Int, means: Array[ListBuffer[Double]], clustered: RDD[(Int, Customer)]): RDD[(Int, Seq[(ListBuffer[Double], Double)])] = {
+    var samples = n_samples
+    clustered.mapValues(customer => Array(customer.balances_norm))
+      .reduceByKey((arr1, arr2) => arr1 ++ arr2)
+      .map(pair => {
+        val cluster_id = pair._1
+        val array = pair._2
+        var dis_map: Map[ListBuffer[Double], Double] = Map()
+        array.foreach(cus => {
+          dis_map += cus -> dtw(cus, means(cluster_id))
+        })
+
+        if (array.length < samples) {
+          samples = array.length
+        }
+
+        (cluster_id, dis_map.toSeq.sortWith(_._2 < _._2).take(samples))
+      })
+  }
+
+  def load_customer_data(sc: SparkContext, source: String, balance_length: Int): RDD[Customer] = {
     sc.textFile(source)
       .flatMap(data => data.split("\n"))
       .filter(line => line.nonEmpty)
       .map(line =>
-        Utils.stringToCustomer(line)
+        Utils.stringToCustomer(line, balance_length)
       )
   }
 
@@ -229,17 +278,17 @@ object Utils {
     array :+ newMean
   }
 
-  def addNewFurthestMean(array: Array[ListBuffer[Double]], clustered: RDD[(Int, Customer)], threshold: Double): Array[ListBuffer[Double]] = {
+  def addNewFurthestMean(array: Array[ListBuffer[Double]], clustered: RDD[(Int, Customer)]): Array[ListBuffer[Double]] = {
     val newMean = clustered.map(pair => {
       val cluster_id = pair._1
       val customer = pair._2
       val mean = array(cluster_id)
 
-      if(dtw(customer.balances_norm, mean) <= threshold) {
+      if (dtw(customer.balances_norm, mean) <= 6) {
         (customer.balances_norm, -1.0)
       } else {
         var total_distance: Double = 0
-        for(i <- array.indices) {
+        for (i <- array.indices) {
           val mean = array(i)
           val dis = dtw(customer.balances_norm, mean)
           total_distance += dis
@@ -247,7 +296,7 @@ object Utils {
         (customer.balances_norm, total_distance)
       }
     }).max()(new Ordering[Tuple2[ListBuffer[Double], Double]]() {
-      override def compare(x: (ListBuffer[Double], Double), y:  (ListBuffer[Double], Double)): Int =
+      override def compare(x: (ListBuffer[Double], Double), y: (ListBuffer[Double], Double)): Int =
         Ordering[Double].compare(x._2, y._2)
     })._1
 
@@ -261,7 +310,7 @@ object Utils {
       val dis = dtw(customer.balances_norm, mean)
       (customer.balances_norm, dis)
     }).max()(new Ordering[Tuple2[ListBuffer[Double], Double]]() {
-      override def compare(x: (ListBuffer[Double], Double), y:  (ListBuffer[Double], Double)): Int =
+      override def compare(x: (ListBuffer[Double], Double), y: (ListBuffer[Double], Double)): Int =
         Ordering[Double].compare(x._2, y._2)
     })._1
 
@@ -305,16 +354,16 @@ object Utils {
 
   def inner_join(arr1: List[Int], arr2: List[Int]): List[Int] = {
     var inner = List[Int]()
-    for(i <- arr1.indices) {
-      if(arr2.contains(arr1(i)))
-        inner = arr1(i)::inner
+    for (i <- arr1.indices) {
+      if (arr2.contains(arr1(i)))
+        inner = arr1(i) :: inner
     }
     inner
   }
 
   def divide(arr: ListBuffer[Double], count: Int): ListBuffer[Double] = {
     val array_divided = arr.clone()
-    for(i <- array_divided.indices) {
+    for (i <- array_divided.indices) {
       array_divided(i) = array_divided(i) / count
     }
     array_divided
@@ -322,58 +371,58 @@ object Utils {
 
   def mean(arr: ListBuffer[Double]): Double = {
     var total: Double = 0
-    for(i <- arr.indices) {
+    for (i <- arr.indices) {
       total = total + arr(i)
     }
-    total/arr.length
+    total / arr.length
   }
 
   def sd(arr: ListBuffer[Double]): Double = {
     val m = mean(arr)
     var total: Double = 0
-    for(i <- arr.indices) {
+    for (i <- arr.indices) {
       total = total + math.pow(arr(i) - m, 2)
     }
-    math.sqrt(total/(arr.length - 1))
+    math.sqrt(total / (arr.length - 1))
   }
 
   def main(args: Array[String]): Unit = {
     //    take_sample(5, 12).toArray
-//          val l1 = ListBuffer[Double](1,2, 3, 4)
-//    println(mean(l1))
-//    println(sd(l1))
-//    val l2 = divide(l1, 2)
-//    val s = "17291,0.070957,0.070957,0.070957,0.070957,0.070957,0.070957,0.070957,0.070957,500.070957,0.070957,0.06435700000000001,0.057757,0.041257,0.024756999999999998,0.008256999999999999"
-//    stringToCustomer(s)
-//    take_sample(2, 12)
+    //          val l1 = ListBuffer[Double](1,2, 3, 4)
+    //    println(mean(l1))
+    //    println(sd(l1))
+    //    val l2 = divide(l1, 2)
+    //    val s = "17291,0.070957,0.070957,0.070957,0.070957,0.070957,0.070957,0.070957,0.070957,500.070957,0.070957,0.06435700000000001,0.057757,0.041257,0.024756999999999998,0.008256999999999999"
+    //    stringToCustomer(s)
+    //    take_sample(2, 12)
     //          val l2 = ListBuffer[Double](2,3)
-//          val l3 = ListBuffer[Double](3,4)
-//          val l4 = ListBuffer[Double](4,5)
-//          var elem = Array(l1, l2, l3, l4)
-//          var elem2 = addNewMean(elem)
-//          elem = addNewMean(elem)
-//          for(i <- elem2.indices){
-//            print(elem2(i))
-//          }
-//    for(i <- l2.indices) {
-//      println(l2(i))
-//    }
-//    val l1 = List(1, 2, 3)
-//    val l2 = List(2, 3, 4)
-////    val elem = merge_list(l1, l2)
-//    val elem = inner_join(l1, l2)
-//    for (i <- elem.indices) {
-//      print(elem(i))
-//    }
+    //          val l3 = ListBuffer[Double](3,4)
+    //          val l4 = ListBuffer[Double](4,5)
+    //          var elem = Array(l1, l2, l3, l4)
+    //          var elem2 = addNewMean(elem)
+    //          elem = addNewMean(elem)
+    //          for(i <- elem2.indices){
+    //            print(elem2(i))
+    //          }
+    //    for(i <- l2.indices) {
+    //      println(l2(i))
+    //    }
+    //    val l1 = List(1, 2, 3)
+    //    val l2 = List(2, 3, 4)
+    ////    val elem = merge_list(l1, l2)
+    //    val elem = inner_join(l1, l2)
+    //    for (i <- elem.indices) {
+    //      print(elem(i))
+    //    }
 
-//    val s = "true"
-//    s.toBoolean
-//    var map: collection.mutable.Map[(Int, Int), List[Int]] = collection.mutable.Map[(Int, Int), collection.immutable.List[Int]]()
-//    map = map + ((1, 2) -> collection.immutable.List(1, 2, 3))
-//    map = map + ((1, 4) -> collection.immutable.List(1, 2, 3))
-//    for(i <- map.keySet) {
-//      println(map.get(i))
-//    }
+    //    val s = "true"
+    //    s.toBoolean
+    //    var map: collection.mutable.Map[(Int, Int), List[Int]] = collection.mutable.Map[(Int, Int), collection.immutable.List[Int]]()
+    //    map = map + ((1, 2) -> collection.immutable.List(1, 2, 3))
+    //    map = map + ((1, 4) -> collection.immutable.List(1, 2, 3))
+    //    for(i <- map.keySet) {
+    //      println(map.get(i))
+    //    }
 
   }
 }

@@ -24,7 +24,11 @@ object Main {
 
   var NEW_MEAN_METHOD: String = "random"
 
-  var NEW_MEAN_THRESHOLD: Double = 0
+  var N_SAMPLES: Int = 100
+
+  var BALANCE_LENGTH: Int = 12
+
+  var NUMBER_OF_FORECAST: Int = 3
 
   var ADDED_MONTH: ListBuffer[Int] = ListBuffer[Int]()
 
@@ -55,8 +59,8 @@ object Main {
 
     if(using_old_centers) {
       NEW_MEAN_METHOD = args(8)
-      NEW_MEAN_THRESHOLD = args(9).toDouble
       SILHOUETTE_CHANGE_THRESHOLD = args(10).toDouble
+      N_SAMPLES = args(11).toInt
     }
 
 
@@ -84,7 +88,7 @@ object Main {
       //    stream_clustering(args);
       println()
       println("Start load data")
-      val customers = Utils.load_customer_data(sc, source_file)
+      val customers = Utils.load_customer_data(sc, source_file, BALANCE_LENGTH)
       val begin = System.currentTimeMillis()
       println()
       val (best_mean, best_clustered, best_sil_mean_map, best_sil_mean) = optimize(minum_cluster,
@@ -94,14 +98,15 @@ object Main {
       println("Total time for clustering is " + spent_time)
       Utils.print_means(i, best_mean)
       Utils.print_silhouette(i, best_sil_mean_map)
-      Utils.save_result(i, spent_time, best_clustered, best_mean, best_sil_mean_map, null, "random")
+      Utils.save_result(i, spent_time, best_clustered, best_mean, best_sil_mean_map, null, N_SAMPLES, "random",
+        NEW_MEAN_METHOD, BALANCE_LENGTH)
     }
   }
 
   def clustering_with_history_cluster_center(source: String, sc: SparkContext,
                                              kmeansEta: Double,
                                              kmeansMaxIterations: Int,
-                                             minum_cluster: Int,
+                                             minimum_cluster: Int,
                                              maximum_cluster: Int,
                                              from_month: Int,
                                              to_month: Int): Unit = {
@@ -116,7 +121,7 @@ object Main {
       //    stream_clustering(args);
       println()
       println("Start load data")
-      val customers = Utils.load_customer_data(sc, source_file)
+      val customers = Utils.load_customer_data(sc, source_file, BALANCE_LENGTH)
       val begin = System.currentTimeMillis()
       println()
       var best_k = 0
@@ -129,7 +134,7 @@ object Main {
       if(previous_sil_mean == -1) {
 
 
-        val (mean, clustered, sil_mean_map, sil_mean) = optimize(minum_cluster, maximum_cluster, customers, kmeansEta, kmeansMaxIterations)
+        val (mean, clustered, sil_mean_map, sil_mean) = optimize(minimum_cluster, maximum_cluster, customers, kmeansEta, kmeansMaxIterations)
         best_mean = mean
         best_clustered = clustered
         best_sil_mean_map = sil_mean_map
@@ -142,7 +147,7 @@ object Main {
         val sil_mean = sil.values.sum / means.length
         println("Silhouette at " + i + " when clustered with " + means.length + " clusters is " + sil_mean)
         val (backward_mean, backward_clustered, backward_sil_mean_map, backward_sil_mean)
-        = optimize_backward(minum_cluster, means.length - 1, sil_mean, previous_means.clone(), sil, clustered, customers, kmeansEta, kmeansMaxIterations)
+        = optimize_backward(minimum_cluster, means.length - 1, sil_mean, previous_means.clone(), sil, clustered, customers, kmeansEta, kmeansMaxIterations)
         println("Silhouette backward at " + i + " when clustered with " + backward_mean.length + " clusters is " + backward_sil_mean)
 
         val (forward_mean, forward_clustered,forward_sil_mean_map, forward_sil_mean)
@@ -183,7 +188,8 @@ object Main {
       println("Total time for clustering is " + spent_time)
       Utils.print_means(i, best_mean)
       Utils.print_silhouette(i, best_sil_mean_map)
-      Utils.save_result(i, spent_time, best_clustered, best_mean, best_sil_mean_map, monitored, "history")
+      Utils.save_result(i, spent_time, best_clustered, best_mean, best_sil_mean_map, monitored, N_SAMPLES, "history",
+        NEW_MEAN_METHOD, BALANCE_LENGTH)
     }
 
   }
@@ -204,7 +210,7 @@ object Main {
         val cross = Utils.inner_join(list_i, list_j)
 //        println("Inner joint between previous group " + i + " and current group " + j + " is " + cross.length)
         if(cross.nonEmpty)
-          map = map + ((i, j) -> (cross, cross.length * 1.0/list_i.length))
+          map = map + ((i, j) -> (cross, cross.length * 1.0/list_j.length))
       }
     }
     map
@@ -260,7 +266,7 @@ object Main {
         newMeans = Utils.addNewRandomMean(previous_means)
       } else if (NEW_MEAN_METHOD.equals("furthest")) {
         println("Generate new mean using furthest")
-        newMeans = Utils.addNewFurthestMean(previous_means, previous_clustered, NEW_MEAN_THRESHOLD)
+        newMeans = Utils.addNewFurthestMean(previous_means, previous_clustered)
       } else if (NEW_MEAN_METHOD.equals("furthest_in_cluster")) {
         val cluster_have_min_sil = previous_sil_map.min._1
         println("Generate new mean using furthest_in_cluster " + cluster_have_min_sil)
