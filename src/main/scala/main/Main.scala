@@ -61,6 +61,7 @@ object Main {
       NEW_MEAN_METHOD = args(8)
       SILHOUETTE_CHANGE_THRESHOLD = args(10).toDouble
       N_SAMPLES = args(11).toInt
+      BALANCE_LENGTH = args(12).toInt
     }
 
 
