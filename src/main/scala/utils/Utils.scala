@@ -214,10 +214,10 @@ object Utils {
       .collectAsMap()
   }
 
-  def take_cluster_sample(n_samples: Int, means: Array[ListBuffer[Double]], clustered: RDD[(Int, Customer)]): RDD[(Int, Seq[(ListBuffer[Double], Double)])] = {
-    var samples = n_samples
+  def take_cluster_sample(n_samples: Int, means: Array[ListBuffer[Double]], clustered: RDD[(Int, Customer)]): scala.collection.Map[Int, Seq[(ListBuffer[Double], Double)]] = {
     clustered.mapValues(customer => Array(customer.balances_norm))
       .reduceByKey((arr1, arr2) => arr1 ++ arr2)
+      .collectAsMap()
       .map(pair => {
         val cluster_id = pair._1
         val array = pair._2
@@ -226,11 +226,12 @@ object Utils {
           dis_map += cus -> dtw(cus, means(cluster_id))
         })
 
-        if (array.length < samples) {
-          samples = array.length
-        }
 
-        (cluster_id, dis_map.toSeq.sortWith(_._2 < _._2).take(samples))
+        if (array.length < n_samples) {
+          (cluster_id, dis_map.toSeq.sortWith(_._2 < _._2).take(array.length))
+        } else {
+          (cluster_id, dis_map.toSeq.sortWith(_._2 < _._2).take(n_samples))
+        }
       })
   }
 
@@ -387,6 +388,10 @@ object Utils {
   }
 
   def main(args: Array[String]): Unit = {
+    val arr1 = Array(ListBuffer[Double](1, 2, 3))
+    val arr2 = Array(ListBuffer[Double](3, 4, 5))
+    val arr = arr1 ++ arr2
+    println(arr.length)
     //    take_sample(5, 12).toArray
     //          val l1 = ListBuffer[Double](1,2, 3, 4)
     //    println(mean(l1))
