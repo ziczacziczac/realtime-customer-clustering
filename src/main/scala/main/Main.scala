@@ -59,9 +59,9 @@ object Main {
 
     if(using_old_centers) {
       NEW_MEAN_METHOD = args(8)
-      SILHOUETTE_CHANGE_THRESHOLD = args(10).toDouble
-      N_SAMPLES = args(11).toInt
-      BALANCE_LENGTH = args(12).toInt
+      SILHOUETTE_CHANGE_THRESHOLD = args(9).toDouble
+      N_SAMPLES = args(10).toInt
+      BALANCE_LENGTH = args(11).toInt
     }
 
 
