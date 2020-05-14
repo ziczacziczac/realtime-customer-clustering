@@ -264,7 +264,7 @@ object Main {
 
       if(NEW_MEAN_METHOD.equals("random")) {
         println("Generate new mean using random method")
-        newMeans = Utils.addNewRandomMean(previous_means)
+        newMeans = Utils.addNewRandomMean(previous_means, BALANCE_LENGTH)
       } else if (NEW_MEAN_METHOD.equals("furthest")) {
         println("Generate new mean using furthest")
         newMeans = Utils.addNewFurthestMean(previous_means, previous_clustered)

@@ -5,7 +5,7 @@ import com.google.cloud.Timestamp
 import com.google.cloud.datastore.{FullEntity, IncompleteKey, KeyFactory}
 import model.Customer
 import org.apache.spark.SparkContext
-import org.apache.spark.mllib.feature.PCA
+import org.apache.spark.mllib.feature.{PCA, PCAModel}
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.rdd.RDD
@@ -194,10 +194,20 @@ object Utils {
     /**
      * Save the cluster mean sample
      */
-    take_cluster_sample(n_samples, means, clustered)
+    val pca2 = pca_fit(clustered, 2)
+    val pca3 = pca_fit(clustered, 3)
+    val samples_map = take_cluster_sample(n_samples, means, clustered)
+
+    sample_pca(pca2, samples_map)
       .foreach(pair => {
-        DataConverter.save_cluster_sample(kind_prefix, time_point, pair._1, pair._2, new_mean_method, balance_length)
+        DataConverter.save_cluster_sample(kind_prefix, time_point, pair._1, 2, pair._2, new_mean_method, balance_length)
       })
+
+    sample_pca(pca3, samples_map)
+      .foreach(pair => {
+        DataConverter.save_cluster_sample(kind_prefix, time_point, pair._1, 3, pair._2, new_mean_method, balance_length)
+      })
+
 
     /**
      * Save the number of members of each cluster
@@ -206,10 +216,17 @@ object Utils {
       .foreach(pair => DataConverter.save_cluster_members_count(kind_prefix, time_point, pair._1,
         pair._2, new_mean_method, balance_length))
 
+    /**
+     * Save the cluster members
+     */
+    cluster_members(clustered)
+      .foreach(pair => {
+        DataConverter.save_cluster_members(kind_prefix, time_point, pair._1, pair._2, new_mean_method, balance_length)
+      })
   }
 
   def count_cluster_members(clustered: RDD[(Int, Customer)]): collection.Map[Int, Int] = {
-    clustered.mapValues(customer => 1)
+    clustered.mapValues(_ => 1)
       .reduceByKey((c1, c2) => c1 + c2)
       .collectAsMap()
   }
@@ -235,6 +252,12 @@ object Utils {
       })
   }
 
+  def cluster_members(clustered: RDD[(Int, Customer)]): scala.collection.Map[Int, String] = {
+    clustered.mapValues(cus => cus.id + "")
+      .reduceByKey((v1, v2) => v1 + ";"+ v2)
+      .collectAsMap()
+  }
+
   def load_customer_data(sc: SparkContext, source: String, balance_length: Int): RDD[Customer] = {
     sc.textFile(source)
       .flatMap(data => data.split("\n"))
@@ -257,6 +280,31 @@ object Utils {
     (pca.explainedVariance.toArray, cusPca)
   }
 
+  def pca_fit(clustered: RDD[(Int, Customer)], dim: Int): PCAModel = {
+    val rows = clustered.map(pair => new LabeledPoint(pair._1, Vectors.dense(pair._2.balances_norm.toArray)))
+    new PCA(dim).fit(rows.map(_.features))
+  }
+
+  /**
+   * Transform sample to PCA
+   *
+   * @param pca_model   : fitted pca model
+   * @param samples_map : cluster samples map
+   * @return
+   */
+  def sample_pca(pca_model: PCAModel, samples_map: scala.collection.Map[Int, Seq[(ListBuffer[Double], Double)]]):
+  scala.collection.Map[Int, Seq[(ListBuffer[Double], ListBuffer[Double], Double)]] = {
+    samples_map.map(pair => {
+      val seq = pair._2.map(pair2 => {
+        val sample = pair2._1
+        val point = new LabeledPoint(pair._1, Vectors.dense(sample.toArray))
+        val point_pca = point.copy(features = pca_model.transform(point.features))
+        (pair2._1, ListBuffer(point_pca.features.toArray: _*), pair2._2)
+      })
+      (pair._1, seq)
+    })
+  }
+
   def removeAt(array: Array[ListBuffer[Double]], index: Int): Array[ListBuffer[Double]] = {
     if (array == null || array.isEmpty) return array
     array.indices.collect({ case i if i != index => array(i) }).toArray
@@ -273,9 +321,9 @@ object Utils {
     array :+ newMean.map(_ / array.length)
   }
 
-  def addNewRandomMean(array: Array[ListBuffer[Double]]): Array[ListBuffer[Double]] = {
+  def addNewRandomMean(array: Array[ListBuffer[Double]], balance_length: Int): Array[ListBuffer[Double]] = {
     if (array == null || array.isEmpty) return array
-    val newMean = take_sample(1, 12)(0)
+    val newMean = take_sample(1, balance_length)(0)
     array :+ newMean
   }
 
@@ -283,19 +331,16 @@ object Utils {
     val newMean = clustered.map(pair => {
       val cluster_id = pair._1
       val customer = pair._2
-      val mean = array(cluster_id)
+      val own_dis = dtw(customer.balances_norm, array(cluster_id))
 
-      if (dtw(customer.balances_norm, mean) <= 6) {
-        (customer.balances_norm, -1.0)
-      } else {
-        var total_distance: Double = 0
-        for (i <- array.indices) {
-          val mean = array(i)
-          val dis = dtw(customer.balances_norm, mean)
+      var total_distance: Double = 0
+      for (i <- array.indices) {
+        if(i != cluster_id) {
+          val dis = dtw(customer.balances_norm, array(i))
           total_distance += dis
         }
-        (customer.balances_norm, total_distance)
       }
+      (customer.balances_norm, own_dis * total_distance)
     }).max()(new Ordering[Tuple2[ListBuffer[Double], Double]]() {
       override def compare(x: (ListBuffer[Double], Double), y: (ListBuffer[Double], Double)): Int =
         Ordering[Double].compare(x._2, y._2)
