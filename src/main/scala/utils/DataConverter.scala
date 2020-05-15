@@ -134,7 +134,7 @@ object DataConverter {
     }
 
     for (i <- sample_transform3.indices) {
-      entity_builder.set("p3" + i, sample_transform2(i))
+      entity_builder.set("p3" + i, sample_transform3(i))
     }
 
     entity_builder.build()
