@@ -198,16 +198,10 @@ object Utils {
     val pca3 = pca_fit(clustered, 3)
     val samples_map = take_cluster_sample(n_samples, means, clustered)
 
-    sample_pca(pca2, samples_map)
+    sample_pca(pca2, pca3, samples_map)
       .foreach(pair => {
         DataConverter.save_cluster_sample(kind_prefix, time_point, pair._1, 2, pair._2, new_mean_method, balance_length)
       })
-
-    sample_pca(pca3, samples_map)
-      .foreach(pair => {
-        DataConverter.save_cluster_sample(kind_prefix, time_point, pair._1, 3, pair._2, new_mean_method, balance_length)
-      })
-
 
     /**
      * Save the number of members of each cluster
@@ -288,18 +282,20 @@ object Utils {
   /**
    * Transform sample to PCA
    *
-   * @param pca_model   : fitted pca model
+   * @param pca_model2   : fitted pca model
+   * @param pca_model3   : fitted pca model
    * @param samples_map : cluster samples map
    * @return
    */
-  def sample_pca(pca_model: PCAModel, samples_map: scala.collection.Map[Int, Seq[(ListBuffer[Double], Double)]]):
-  scala.collection.Map[Int, Seq[(ListBuffer[Double], ListBuffer[Double], Double)]] = {
+  def sample_pca(pca_model2: PCAModel, pca_model3: PCAModel, samples_map: scala.collection.Map[Int, Seq[(ListBuffer[Double], Double)]]):
+  scala.collection.Map[Int, Seq[(ListBuffer[Double], ListBuffer[Double], ListBuffer[Double], Double)]] = {
     samples_map.map(pair => {
       val seq = pair._2.map(pair2 => {
         val sample = pair2._1
         val point = new LabeledPoint(pair._1, Vectors.dense(sample.toArray))
-        val point_pca = point.copy(features = pca_model.transform(point.features))
-        (pair2._1, ListBuffer(point_pca.features.toArray: _*), pair2._2)
+        val point_pca2 = point.copy(features = pca_model2.transform(point.features))
+        val point_pca3 = point.copy(features = pca_model3.transform(point.features))
+        (pair2._1, ListBuffer(point_pca2.features.toArray: _*), ListBuffer(point_pca3.features.toArray: _*), pair2._2)
       })
       (pair._1, seq)
     })

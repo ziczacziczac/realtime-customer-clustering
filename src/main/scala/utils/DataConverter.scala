@@ -112,9 +112,9 @@ object DataConverter {
   private def convert_to_cluster_samples(keyFactory: KeyFactory,
                                          time_point: Int,
                                          cluster_id: Int,
-                                         transform_dim: Int,
                                          sample: ListBuffer[Double],
-                                         sample_transform: ListBuffer[Double],
+                                         sample_transform2: ListBuffer[Double],
+                                         sample_transform3: ListBuffer[Double],
                                          dist: Double,
                                          new_mean_method: String,
                                          balance_length: Int): FullEntity[IncompleteKey] = {
@@ -124,14 +124,17 @@ object DataConverter {
       .set("dist", dist)
       .set("new_mean_method", new_mean_method)
       .set("balance_length", balance_length)
-      .set("transform_dim", transform_dim)
 
     for (i <- sample.indices) {
       entity_builder.set("mean" + i, sample(i))
     }
 
-    for (i <- sample_transform.indices) {
-      entity_builder.set("p" + transform_dim + "" + i, sample_transform(i))
+    for (i <- sample_transform2.indices) {
+      entity_builder.set("p"+ i, sample_transform2(i))
+    }
+
+    for (i <- sample_transform2.indices) {
+      entity_builder.set("p" + i, sample_transform2(i))
     }
 
     entity_builder.build()
@@ -161,7 +164,7 @@ object DataConverter {
     FullEntity.newBuilder(keyFactory.newKey())
       .set("time_point", time_point)
       .set("cluster_id", cluster_id)
-      .set("cluster_members", members)
+      .set("cluster_members", StringValue.newBuilder(members).setExcludeFromIndexes(true).build())
       .set("new_mean_method", new_mean_method)
       .set("balance_length", balance_length)
       .build()
@@ -261,13 +264,13 @@ object DataConverter {
   }
 
   def save_cluster_sample(kind_prefix: String, time_point: Int,
-                          cluster_id: Int, transform_dim: Int, seq: Seq[(ListBuffer[Double], ListBuffer[Double], Double)], new_mean_method: String,
+                          cluster_id: Int, transform_dim: Int, seq: Seq[(ListBuffer[Double], ListBuffer[Double], ListBuffer[Double], Double)], new_mean_method: String,
                           balance_length: Int): Unit = {
     val datastore: Datastore = DatastoreOptions.getDefaultInstance.getService
     val keyFactoryBuilder = datastore.newKeyFactory().setKind(kind_prefix + "_cluster_samples")
     seq.foreach(pair => {
       val entity: FullEntity[IncompleteKey] = convert_to_cluster_samples(keyFactoryBuilder,
-        time_point, cluster_id, transform_dim, pair._1, pair._2, pair._3, new_mean_method, balance_length)
+        time_point, cluster_id, pair._1, pair._2, pair._3, pair._4, new_mean_method, balance_length)
       datastore.add(entity)
     })
   }
