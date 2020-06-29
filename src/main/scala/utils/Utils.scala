@@ -68,13 +68,9 @@ object Utils {
     val min = balances.min
 
     var normalized_balances: ListBuffer[Double] = ListBuffer[Double]()
-    if (max == min && max == 0) {
+    if (max == min) {
       for (_ <- balances.indices) {
         normalized_balances += 0
-      }
-    } else if (max == min && max != 0) {
-      for (_ <- balances.indices) {
-        normalized_balances += 1
       }
     } else {
       for (i <- balances.indices) {
@@ -217,6 +213,14 @@ object Utils {
       .foreach(pair => {
         DataConverter.save_cluster_members(kind_prefix, time_point, pair._1, pair._2, new_mean_method, balance_length)
       })
+  }
+
+  def means(clustered: RDD[(Int, Customer)]): scala.collection.Map[Int, ListBuffer[Double]] = {
+    clustered
+      .mapValues(cus => (1, cus.balances_norm))
+      .reduceByKey((v1, v2) => (v1._1 + v2._1, sum_balance(v1._2, v2._2)))
+      .mapValues(pair => divide(pair._2, pair._1))
+      .collectAsMap()
   }
 
   def count_cluster_members(clustered: RDD[(Int, Customer)]): collection.Map[Int, Int] = {

@@ -1,12 +1,8 @@
 package clustering
 
 import model.Customer
-import org.apache.spark.mllib.feature.PCA
-import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.regression.LabeledPoint
+import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkConf, SparkContext}
-import utils.{DataConverter, Utils}
 
 import scala.collection.mutable.ListBuffer
 
@@ -137,7 +133,7 @@ object ClusteringImpl extends Clustering {
   def averageVectors(ps: Iterable[Customer]): ListBuffer[Double] = {
     val iter = ps.iterator
     var count = 0
-    val sumArray = iter.next().balances_norm
+    val sumArray = iter.next().balances_norm.clone()
     while (iter.hasNext) {
       val item = iter.next.balances_norm
       for (i <- item.indices) {
