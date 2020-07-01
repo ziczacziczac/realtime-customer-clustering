@@ -210,7 +210,7 @@ object Utils {
      * Save the cluster members
      */
     cluster_members(clustered)
-      .saveAsTextFile("gs://datazzz/" + kind_prefix + "_" + new_mean_method + "_cluster_members.txt")
+      .saveAsTextFile("gs://datazzz/" + kind_prefix + "_" + new_mean_method + "_" + time_point + "_cluster_members.txt")
 //      .foreach(pair => {
 //        DataConverter.save_cluster_members(kind_prefix, time_point, pair._1, pair._2, new_mean_method, balance_length)
 //      })
