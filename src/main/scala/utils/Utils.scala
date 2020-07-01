@@ -210,9 +210,10 @@ object Utils {
      * Save the cluster members
      */
     cluster_members(clustered)
-      .foreach(pair => {
-        DataConverter.save_cluster_members(kind_prefix, time_point, pair._1, pair._2, new_mean_method, balance_length)
-      })
+      .saveAsTextFile("gs://datazzz/" + kind_prefix + "_" + new_mean_method + "_cluster_members.txt")
+//      .foreach(pair => {
+//        DataConverter.save_cluster_members(kind_prefix, time_point, pair._1, pair._2, new_mean_method, balance_length)
+//      })
   }
 
   def means(clustered: RDD[(Int, Customer)]): scala.collection.Map[Int, ListBuffer[Double]] = {
@@ -250,10 +251,9 @@ object Utils {
       })
   }
 
-  def cluster_members(clustered: RDD[(Int, Customer)]): scala.collection.Map[Int, String] = {
+  def cluster_members(clustered: RDD[(Int, Customer)]): RDD[(Int, String)] = {
     clustered.mapValues(cus => cus.id + "")
       .reduceByKey((v1, v2) => v1 + ";"+ v2)
-      .collectAsMap()
   }
 
   def load_customer_data(sc: SparkContext, source: String, balance_length: Int): RDD[Customer] = {
