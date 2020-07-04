@@ -129,7 +129,6 @@ object Main {
       var best_sil_mean: Double = 0
       var best_mean: Array[ListBuffer[Double]] = null
       var best_clustered: RDD[(Int, Customer)] = null
-
       if (previous_sil_mean == -1) {
 
 
@@ -175,16 +174,23 @@ object Main {
           best_sil_mean = sil_mean
           best_k = best_mean.length
         }
+
+      }
+      val end = System.currentTimeMillis()
+      val spent_time: Long = (end - begin) / 1000
+      println("Total time for clustering is " + spent_time)
+
+      if(previous_sil_mean != -1) {
         monitored = monitor_cluster_change(previous_clustered, best_clustered)
       }
+
       previous_means = best_mean
       previous_sil_mean = best_sil_mean
       previous_sil_mean_map = best_sil_mean_map
       previous_clustered = best_clustered
 
-      val end = System.currentTimeMillis()
-      val spent_time: Long = (end - begin) / 1000
-      println("Total time for clustering is " + spent_time)
+
+
       Utils.print_means(i, best_mean)
       Utils.print_silhouette(i, best_sil_mean_map)
       Utils.save_result(i, spent_time, best_clustered, best_mean, best_sil_mean_map, monitored, N_SAMPLES, "history",
