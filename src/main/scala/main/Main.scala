@@ -153,14 +153,14 @@ object Main {
         println("Silhouette forward at " + i + " when clustered with " + forward_mean.length + " clusters is " + forward_sil_mean)
 
         if (backward_sil_mean < forward_sil_mean) {
-          println("The optimize is forward with silhouette: " + sil_mean + " and number of clusters " + forward_mean.length)
+          println("The optimize is forward with silhouette: " + forward_sil_mean + " and number of clusters " + forward_mean.length)
           best_clustered = forward_clustered
           best_mean = forward_mean
           best_sil_mean_map = forward_sil_mean_map
           best_sil_mean = forward_sil_mean
           best_k = best_mean.length
         } else if (backward_sil_mean > forward_sil_mean) {
-          println("The optimize is backward with silhouette: " + sil_mean + " and number of clusters " + backward_mean.length)
+          println("The optimize is backward with silhouette: " + backward_sil_mean + " and number of clusters " + backward_mean.length)
           best_clustered = backward_clustered
           best_mean = backward_mean
           best_sil_mean_map = backward_sil_mean_map
